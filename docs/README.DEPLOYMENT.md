@@ -10,7 +10,7 @@
 
 **Post-Deployment State:**
 
-- Interface loads with "Welcome to LibreChat!"
+- Interface loads with welcome message
 - All services running healthy (MongoDB, Meilisearch, RAG API, etc.)
 - Cannot send messages yet (no AI models configured)
 - No facility management tools available (MCP not connected)
@@ -28,7 +28,7 @@ This is expected behavior - not an error.
 
 ### 1. Clone Pre-Configured Repository
 
-This repository is pre-configured for facility management deployment.
+This repository contains LibreChat deployment files.
 
 ```bash
 git clone https://github.com/veloxforce/archibus-deploy.git
@@ -64,7 +64,7 @@ docker compose up -d --build
 ```
 
 This will:
-- Build LibreChat image with facility management UI
+- Build LibreChat application
 - Start MongoDB database
 - Start Meilisearch for conversation search
 - Start RAG API for document processing
@@ -81,7 +81,7 @@ All containers should show "Up" status.
 
 **Access the application:**
 - Open browser to `http://localhost:3080`
-- You should see: "Welcome to LibreChat!"
+- You should see the LibreChat interface
 
 ### 5. Create Admin Account
 
