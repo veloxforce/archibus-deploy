@@ -10,7 +10,7 @@
 
 **Post-Deployment State:**
 
-- Interface loads with "Welcome to Facility Management Assistant"
+- Interface loads with "Welcome to LibreChat!"
 - All services running healthy (MongoDB, Meilisearch, RAG API, etc.)
 - Cannot send messages yet (no AI models configured)
 - No facility management tools available (MCP not connected)
@@ -31,8 +31,8 @@ This is expected behavior - not an error.
 This repository is pre-configured for facility management deployment.
 
 ```bash
-git clone https://github.com/veloxforce/archibus.git
-cd archibus/services/librechat
+git clone https://github.com/veloxforce/archibus-deploy.git
+cd archibus-deploy
 ```
 
 **Note:** All necessary configurations are already included.
@@ -81,7 +81,7 @@ All containers should show "Up" status.
 
 **Access the application:**
 - Open browser to `http://localhost:3080`
-- You should see: "Welcome to Facility Management Assistant. How can I help you today?"
+- You should see: "Welcome to LibreChat!"
 
 ### 5. Create Admin Account
 
