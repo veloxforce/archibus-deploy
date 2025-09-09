@@ -27,6 +27,7 @@
 The repository includes a pre-configured `librechat.yaml` file that connects to Bruce BEM facility management tools.
 
 **File location:** `librechat.yaml` (repository root)
+
 **Contents:** Pre-configured MCP server connection (no modifications needed)
 
 ### 2. Mount Configuration in Docker
@@ -115,22 +116,3 @@ docker logs LibreChat | grep -i "mcp.*bruce"
 - MCP server URLs or endpoints
 - Authentication credentials or tokens  
 - Tool registration or discovery
-
-## Next Steps
-
-After successful MCP integration:
-
-1. **Train Users:** Facility staff can now request work orders conversationally
-2. **Monitor Usage:** Check logs for tool usage patterns
-3. **Scale Access:** Add more users through LibreChat user management
-
-**Example Conversations:**
-- "The coffee machine in Building A is not working"
-- "Search for all HVAC equipment in the north wing"
-- "Create a work request for elevator maintenance"
-
-**Current Status:** Bruce BEM tools integrated and ready for facility management workflows.
-
----
-
-*MCP configuration validated and ready for production deployment.*
