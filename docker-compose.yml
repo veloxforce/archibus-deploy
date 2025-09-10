@@ -9,9 +9,7 @@ services:
     depends_on:
       - mongodb
       - rag_api
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ghcr.io/danny-avila/librechat-dev:latest
     restart: always
     user: "${UID}:${GID}"
     extra_hosts:

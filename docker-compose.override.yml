@@ -1,0 +1,12 @@
+# Override to build from local Dockerfile instead of using pre-built image
+# Comment out this file content to test with pre-built images
+# Uncomment to test local build process
+
+# services:
+#   api:
+#     build:
+#       context: .
+#       dockerfile: Dockerfile
+#     image: null  # Override the pre-built image reference
+    # volumes:
+    #   - ./librechat.yaml:/app/librechat.yaml:ro
