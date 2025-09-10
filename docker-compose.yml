@@ -9,6 +9,8 @@ services:
     depends_on:
       - mongodb
       - rag_api
+    # Note: Ideally build config should be in docker-compose.override.yml, 
+    # but Docker Compose merge behavior prioritizes image: over build: in overrides
     build:
       context: .
       dockerfile: Dockerfile
