@@ -1,0 +1,16 @@
+# Docker Compose override for archibus-deploy customizations
+# Overrides original LibreChat configuration with local build and MCP integration
+
+services:
+  api:
+# Note: build config moved to main docker-compose.yml due to override merge limitations
+    # Mount MCP configuration (file to be added separately)
+    volumes:
+      - ./librechat.yaml:/app/librechat.yaml:ro
+    # Health check for production monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://0.0.0.0:3080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
