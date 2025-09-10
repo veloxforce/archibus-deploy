@@ -9,6 +9,11 @@
 - Ready-to-use `librechat.yaml` file 
 - No server setup required on your end
 
+**What You Don't Need to Configure:**
+- MCP server URLs or endpoints
+- Authentication credentials or tokens  
+- Tool registration or discovery
+
 **Post-Configuration State:**
 - Facility management tools available in chat interface
 - Users can search assets, create work requests naturally
@@ -16,7 +21,7 @@
 
 ## Prerequisites
 
-- Completed Phase 1 (Infrastructure) and Phase 2 (AI Models)
+- Completed Phase 1 (Infrastructure)
 - LibreChat running successfully at localhost:3080
 - Basic Docker Compose knowledge
 
@@ -32,7 +37,7 @@ The repository includes a pre-configured `librechat.yaml` file that connects to 
 
 ### 2. Mount Configuration in Docker
 
-Create `docker-compose.override.yml` to mount the MCP configuration:
+Create or use the existing `docker-compose.override.yml` to mount the MCP configuration:
 
 ```yaml
 services:
@@ -65,23 +70,35 @@ docker compose down && docker compose up -d
 
 ### 4. Verification
 
-**Verify file is accessible in container:**
+**Phase 3 Success Criteria:**
+
+**Step 1: Verify MCP Configuration Mount**
 ```bash
 docker exec LibreChat cat /app/librechat.yaml
 # Should display MCP configuration content
 ```
 
-**Check MCP tools loaded successfully:**
+**Step 2: Check Tool Registration in Logs**
 ```bash
 docker logs LibreChat | grep -i "mcp.*bruce"
-# Should show: "Added [X] MCP tools" (not 0)
+# SUCCESS: Look for this exact line indicating Phase 3 completion:
+# 2025-09-10 09:11:49 info: [MCP][bruce-bem] Tools: bruce-bem__authenticate_bruce_bem, bruce-bem__search_assets, bruce-bem__create_work_request
 ```
 
-**Test in LibreChat interface:**
+**What Success Looks Like:**
+If you see the above log line with all three tools listed, Phase 3 MCP integration is complete and working.
+
+**Step 3: UI Integration Test**
 1. Open http://localhost:3080
 2. Look for server dropdown below chat input area
-3. Select "Bruce BEM" from available servers
-4. MCP tools now available for facility management conversations
+3. Click on "bruce-bem" server selection
+4. **Success Indicator:** Checkmark appears in front of "bruce-bem"
+5. MCP tools now available for facility management conversations
+
+**Phase 3 Complete When:**
+- Tools logged: `bruce-bem__authenticate_bruce_bem, bruce-bem__search_assets, bruce-bem__create_work_request`
+- UI shows checkmark for "bruce-bem" server selection
+- Ready for facility management workflows
 
 ## Troubleshooting
 
@@ -99,20 +116,3 @@ docker logs LibreChat | grep -i "mcp.*bruce"
 - Solution: Check container logs for connection errors
 - Command: `docker logs LibreChat | grep -i error`
 
-## Configuration Details
-
-**What's Pre-Configured:**
-- Bruce BEM server connection endpoints
-- Authentication settings
-- Tool availability settings
-- Error handling configuration
-
-**What You Control:**
-- When to enable/disable the integration (volume mount)
-- Container restart/recreation timing
-- Log monitoring and verification
-
-**What You Don't Need to Configure:**
-- MCP server URLs or endpoints
-- Authentication credentials or tokens  
-- Tool registration or discovery
