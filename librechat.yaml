@@ -2,14 +2,19 @@ version: 1.0.5
 
 interface:
   customWelcome: "Welcome to Facility Management Assistant. How can I help you today?"
-  modelSelect: true      # No model selection
+  modelSelect: true      # Model selection enabled
   parameters: false       # No temperature/token sliders  
-  sidePanel: false        # No Agent Builder panel
+  sidePanel: true         # Enable Agent Builder panel
   presets: false          # No saved configurations
   prompts: false          # No prompt library
   multiConvo: false       # No multiple chat tabs
-  agents: false           # No agent functionality
-  bookmarks: false         # Keep for saving work orders
+  agents: true            # Enable agent functionality
+  bookmarks: false        # Keep for saving work orders
+  endpointsMenu: true     # Show endpoints dropdown
+
+endpoints:
+  agents:
+    disableBuilder: false  # Enable Agent Builder interface
 
 mcpServers:
   bruce-bem:
