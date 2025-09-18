@@ -30,3 +30,9 @@ mcpServers:
     name: "Bruce BEM"
     type: "streamable-http"
     requiresOAuth: false
+  keboola:
+    type: sse
+    url: "https://mcp.europe-west3.gcp.keboola.com/sse"
+    name: "Keboola"
+    oauth:
+      redirect_uri: "https://librechat.veloxforce.dev/api/mcp/keboola/oauth/callback"
