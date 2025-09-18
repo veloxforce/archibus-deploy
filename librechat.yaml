@@ -1,20 +1,28 @@
 version: 1.0.5
 
 interface:
-  customWelcome: "Welcome to Facility Management Assistant. How can I help you today?"
-  modelSelect: true      # Model selection enabled
+  customWelcome: "Welcome to Bruce Facility Management Assistant. How can I help you today?"
+  modelSelect: false      # Hide model selection for business users
   parameters: false       # No temperature/token sliders  
-  sidePanel: true         # Enable Agent Builder panel
+  sidePanel: false        # Hide Agent Builder panel
   presets: false          # No saved configurations
   prompts: false          # No prompt library
   multiConvo: false       # No multiple chat tabs
   agents: true            # Enable agent functionality
   bookmarks: false        # Keep for saving work orders
-  endpointsMenu: true     # Show endpoints dropdown
+  endpointsMenu: false    # Hide endpoints dropdown
 
 endpoints:
   agents:
-    disableBuilder: false  # Enable Agent Builder interface
+    disableBuilder: true   # Disable Agent Builder for business users
+
+modelSpecs:
+  list:
+    - name: "Bruce Facility Management Assistant"
+      preset:
+        default: true
+        endpoint: "agents"
+        agent_id: "agent_puHfnjHosgyXYYxG77CJ3"
 
 mcpServers:
   bruce-bem:
