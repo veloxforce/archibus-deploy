@@ -42,4 +42,4 @@ mcpServers:
     url: "https://mcp.europe-west3.gcp.keboola.com/sse"
     name: "Keboola"
     oauth:
-      redirect_uri: "https://librechat.veloxforce.dev/api/mcp/keboola/oauth/callback"
+      redirect_uri: "https://dev-bruceai.bruceplatform.com/api/mcp/keboola/oauth/callback"
