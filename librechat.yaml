@@ -1,16 +1,22 @@
 version: 1.0.5
 
 interface:
-  customWelcome: "Welcome to Bruce Facility Management Assistant. How can I help you today?"
-  modelSelect: false      # Hide model selection for business users
-  parameters: false       # No temperature/token sliders  
-  sidePanel: false        # Hide Agent Builder panel
-  presets: false          # No saved configurations
-  prompts: false          # No prompt library
-  multiConvo: false       # No multiple chat tabs
-  agents: true            # Enable agent functionality
-  bookmarks: false        # Keep for saving work orders
-  endpointsMenu: false    # Hide endpoints dropdown
+  customWelcome: "Hello!"
+  # Minimal end-user configuration per ADR001
+  modelSelect: true
+  parameters: false
+  sidePanel: true
+  presets: false
+  prompts: false
+  multiConvo: false
+  agents: true
+  bookmarks: false
+  endpointsMenu: false
+  webSearch: true
+  fileSearch: false
+  runCode: false
+  fileCitations: false
+
 
 endpoints:
   agents:
@@ -19,6 +25,7 @@ endpoints:
 modelSpecs:
   list:
     - name: "Bruce Facility Management Assistant"
+      label: "Bruce Facility Management Assistant"
       preset:
         default: true
         endpoint: "agents"
