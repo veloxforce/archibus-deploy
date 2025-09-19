@@ -5,7 +5,7 @@ interface:
   # Minimal end-user configuration per ADR001
   modelSelect: true # To allow JAN to have a non-agent chat interface for Keebola
   parameters: false
-  sidePanel: true 
+  sidePanel: true # Not sure about this one yet, maybe even keep on to hotfix issues if they come up in the demo
   presets: false
   prompts: false
   multiConvo: false
