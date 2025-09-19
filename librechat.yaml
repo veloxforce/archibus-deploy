@@ -20,7 +20,7 @@ interface:
 
 endpoints:
   agents:
-    disableBuilder: true   # Disable Agent Builder for business users
+    disableBuilder: false
 
 modelSpecs:
   list:
