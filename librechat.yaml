@@ -3,16 +3,16 @@ version: 1.0.5
 interface:
   customWelcome: "Hello!"
   # Minimal end-user configuration per ADR001
-  modelSelect: true
+  modelSelect: true # To allow JAN to have a non-agent chat interface for Keebola
   parameters: false
-  sidePanel: true
+  sidePanel: true 
   presets: false
   prompts: false
   multiConvo: false
-  agents: true
+  agents: true # Necessary for enabling the agent functionality
   bookmarks: false
   endpointsMenu: false
-  webSearch: true
+  webSearch: true # Most likely will be used inside of 2025-09-30 Demo
   fileSearch: false
   runCode: false
   fileCitations: false
