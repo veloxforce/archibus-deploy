@@ -21,6 +21,16 @@ interface:
 endpoints:
   agents:
     disableBuilder: false
+  custom:
+    - name: "RunPod-Qwen3"
+      apiKey: "${RUNPOD_API_KEY}"
+      baseURL: "https://api.runpod.ai/v2/4mn6oujss9kcib/openai/v1"
+      models:
+        default: ["qwen/qwen3-14b"]
+        fetch: false
+      titleConvo: true
+      titleModel: "qwen/qwen3-14b"
+      modelDisplayLabel: "Qwen3-14B (RunPod)"
 
 modelSpecs:
   list:
