@@ -43,7 +43,7 @@ modelSpecs:
 
 mcpServers:
   bruce-bem:
-    url: "https://meta.veloxforce.dev/metamcp/bruce-bem-endpoint/mcp"
+    url: "https://archibus-mcp.wilsch-deployment.com/mcp"
     name: "Bruce BEM"
     type: "streamable-http"
     requiresOAuth: false
