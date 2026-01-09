@@ -298,6 +298,13 @@ export default function useChatFunctions({
     }
 
     logger.log('message_state', initialResponse);
+
+    // RAIN TOKEN PASSTHROUGH: Include tokens from sessionStorage in submission.
+    // These tokens are captured from URL params by useQueryParams.ts and stored in sessionStorage.
+    // They flow through to createPayload.ts and ultimately to MCP headers.
+    const rainUserToken = sessionStorage.getItem('rainUserToken') || '';
+    const rainRefreshToken = sessionStorage.getItem('rainRefreshToken') || '';
+
     const submission: TSubmission = {
       conversation: {
         ...conversation,
@@ -317,6 +324,9 @@ export default function useChatFunctions({
       isTemporary,
       ephemeralAgent,
       editedContent,
+      // Rain tokens for MCP passthrough
+      ...(rainUserToken && { userToken: rainUserToken }),
+      ...(rainRefreshToken && { refreshToken: rainRefreshToken }),
     };
 
     if (isRegenerate) {

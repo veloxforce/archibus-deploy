@@ -294,6 +294,9 @@ export default function useQueryParams({
         queryParams[key] = value;
       });
 
+      // Note: Rain tokens (userToken, refreshToken) are captured in Login.tsx
+      // BEFORE auto-login redirect. This hook runs too late to capture them.
+
       // Support both 'prompt' and 'q' as query parameters, with 'prompt' taking precedence
       const decodedPrompt = queryParams.prompt || queryParams.q || '';
       const shouldAutoSubmit = queryParams.submit?.toLowerCase() === 'true';

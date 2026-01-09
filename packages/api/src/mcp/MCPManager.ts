@@ -259,13 +259,17 @@ Please follow these instructions when using tools from the respective MCP server
       }
 
       const rawConfig = this.getRawConfig(serverName) as t.MCPOptions;
+      // DEBUG: Log requestBody to verify Rain tokens are present
+      console.log('[RAIN DEBUG] requestBody:', JSON.stringify(requestBody, null, 2));
       const currentOptions = processMCPEnv({
         user,
         options: rawConfig,
         customUserVars: customUserVars,
         body: requestBody,
       });
+      // DEBUG: Log resolved headers
       if ('headers' in currentOptions) {
+        console.log('[RAIN DEBUG] Resolved headers:', JSON.stringify(currentOptions.headers, null, 2));
         connection.setRequestHeaders(currentOptions.headers || {});
       }
 

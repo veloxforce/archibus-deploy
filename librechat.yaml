@@ -11,26 +11,41 @@ interface:
   multiConvo: false
   agents: true # Necessary for enabling the agent functionality
   bookmarks: false
-  endpointsMenu: false
+  endpointsMenu: true
   webSearch: true # Most likely will be used inside of 2025-09-30 Demo
   fileSearch: false
   runCode: false
   fileCitations: false
+  navHistory: false # Hide conversation history sidebar for auto-login POC
 
 
 endpoints:
   agents:
-    disableBuilder: false
+    disableBuilder: False
   custom:
-    - name: "RunPod-Qwen3"
+    - name: "RunPod-Endpoint"
       apiKey: "${RUNPOD_API_KEY}"
-      baseURL: "https://api.runpod.ai/v2/4mn6oujss9kcib/openai/v1"
+      baseURL: "https://api.runpod.ai/v2/y9cxd0x6oqbtbz/openai/v1"
       models:
-        default: ["qwen/qwen3-14b"]
+        default: ["Qwen/Qwen3-14B"]
         fetch: false
       titleConvo: true
-      titleModel: "qwen/qwen3-14b"
-      modelDisplayLabel: "Qwen3-14B (RunPod)"
+      titleModel: "Qwen/Qwen3-14B"
+      modelDisplayLabel: "RunPod Endpoint"
+      addParams:
+        chat_template_kwargs:
+          enable_thinking: false
+
+    - name: "OpenRouter"
+      apiKey: "${OPENROUTER_KEY}"
+      baseURL: "https://openrouter.ai/api/v1"
+      models:
+        default: ["x-ai/grok-4.1-fast:free"]
+        fetch: false
+      titleConvo: true
+      titleModel: "x-ai/grok-4.1-fast:free"
+      dropParams: ["stop"]
+      modelDisplayLabel: "OpenRouter"
 
 modelSpecs:
   list:
@@ -39,7 +54,7 @@ modelSpecs:
       preset:
         default: true
         endpoint: "agents"
-        agent_id: "agent_9G594hfsF4h8m4izC0_7E"
+        agent_id: "agent_rqepYtgGOrSxGh3Yt0cOn"
 
 mcpServers:
   bruce-bem:
@@ -47,9 +62,14 @@ mcpServers:
     name: "Bruce BEM"
     type: "streamable-http"
     requiresOAuth: false
-  keboola:
-    type: sse
-    url: "https://mcp.europe-west3.gcp.keboola.com/sse"
-    name: "Keboola"
-    oauth:
-      redirect_uri: "https://dev-bruceai.bruceplatform.com/api/mcp/keboola/oauth/callback"
+    # Rain token passthrough: These headers carry user authentication from Rain (Bruce BEM's auth system)
+    # to the MCP server for per-user API access. Tokens are captured from iframe URL params.
+    headers:
+      X-Rain-User-Token: "{{LIBRECHAT_BODY_USERTOKEN}}"
+      X-Rain-Refresh-Token: "{{LIBRECHAT_BODY_REFRESHTOKEN}}"
+  # keboola:
+  #   type: sse
+  #   url: "https://mcp.europe-west3.gcp.keboola.com/sse"
+  #   name: "Keboola"
+  #   oauth:
+  #     redirect_uri: "https://librechat.veloxforce.dev/api/mcp/keboola/oauth/callback"

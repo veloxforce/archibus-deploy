@@ -13,6 +13,9 @@ export default function createPayload(submission: t.TSubmission) {
     editedContent,
     ephemeralAgent,
     endpointOption,
+    // Rain tokens for MCP passthrough (from Bruce BEM's Rain auth system)
+    userToken,
+    refreshToken,
   } = submission;
   const { conversationId } = s.tConvoUpdateSchema.parse(conversation);
   const { endpoint: _e, endpointType } = endpointOption as {
@@ -38,6 +41,9 @@ export default function createPayload(submission: t.TSubmission) {
     conversationId,
     isContinued: !!(isEdited && isContinued),
     ephemeralAgent: s.isAssistantsEndpoint(endpoint) ? undefined : ephemeralAgent,
+    // Rain tokens for MCP passthrough (only included if present)
+    ...(userToken && { userToken }),
+    ...(refreshToken && { refreshToken }),
   };
 
   return { server, payload };

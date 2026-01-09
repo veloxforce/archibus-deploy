@@ -41,7 +41,7 @@ export default function AgentMarketplaceButton({
     (authContext?.isAuthenticated === false || authContext?.user !== undefined);
 
   // Show agent marketplace when marketplace permission is enabled, auth is ready, and user has access to agents
-  const showAgentMarketplace = authReady && hasAccessToAgents && hasAccessToMarketplace;
+  const showAgentMarketplace = false; // authReady && hasAccessToAgents && hasAccessToMarketplace;
 
   if (!showAgentMarketplace) {
     return null;

@@ -784,6 +784,9 @@ class AgentClient extends BaseClient {
             messageId: this.responseMessageId,
             conversationId: this.conversationId,
             parentMessageId: this.parentMessageId,
+            // Rain tokens for MCP header passthrough (from Bruce BEM's Rain auth system)
+            userToken: this.options.req.body.userToken,
+            refreshToken: this.options.req.body.refreshToken,
           },
           user: this.options.req.user,
         },

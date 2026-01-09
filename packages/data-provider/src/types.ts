@@ -139,6 +139,9 @@ export type TSubmission = {
   clientTimestamp?: string;
   ephemeralAgent?: TEphemeralAgent | null;
   editedContent?: TEditedContent | null;
+  /** Rain tokens for MCP passthrough (from Bruce BEM's Rain auth system) */
+  userToken?: string;
+  refreshToken?: string;
 };
 
 export type EventSubmission = Omit<TSubmission, 'initialResponse'> & { initialResponse: TMessage };

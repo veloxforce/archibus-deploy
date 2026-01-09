@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { RecoilRoot } from 'recoil';
 import { DndProvider } from 'react-dnd';
 import { RouterProvider } from 'react-router-dom';
@@ -13,6 +14,27 @@ import { router } from './routes';
 
 const App = () => {
   const { setError } = useApiErrorBoundary();
+
+  // Capture Rain tokens from URL before routing/auth decisions
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const userToken = params.get('userToken');
+    const refreshToken = params.get('refreshToken');
+
+    if (userToken) sessionStorage.setItem('rainUserToken', userToken);
+    if (refreshToken) sessionStorage.setItem('rainRefreshToken', refreshToken);
+
+    // Clean URL by removing token params
+    if (userToken || refreshToken) {
+      params.delete('userToken');
+      params.delete('refreshToken');
+      window.history.replaceState(
+        {},
+        '',
+        window.location.pathname + (params.toString() ? '?' + params.toString() : ''),
+      );
+    }
+  }, []);
 
   const queryClient = new QueryClient({
     queryCache: new QueryCache({

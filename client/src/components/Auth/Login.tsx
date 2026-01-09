@@ -60,6 +60,48 @@ function Login() {
     }
   }, [shouldAutoRedirect, startupConfig]);
 
+  // RAIN TOKEN CAPTURE: Must happen BEFORE auto-login redirect.
+  // Tokens are delivered via iframe URL params from Rain (Bruce BEM's auth system).
+  // We capture them immediately on Login page load and store in sessionStorage,
+  // so they persist through the auto-login redirect to the chat interface.
+  useEffect(() => {
+    const userToken = searchParams.get('userToken');
+    const refreshToken = searchParams.get('refreshToken');
+
+    if (userToken) {
+      sessionStorage.setItem('rainUserToken', userToken);
+      console.log('Rain userToken captured and stored');
+    }
+    if (refreshToken) {
+      sessionStorage.setItem('rainRefreshToken', refreshToken);
+      console.log('Rain refreshToken captured and stored');
+    }
+
+    // Clean tokens from URL (optional - keeps URL tidy)
+    if (userToken || refreshToken) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('userToken');
+      newParams.delete('refreshToken');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  // AUTO-LOGIN POC: Bypass LibreChat's native authentication.
+  // LibreChat auth is a gate we need to pass, not the real auth layer.
+  // Real user authentication happens via userToken passed from Rain (Bruce BEM's auth system)
+  // to the MCP server. This auto-login just gets users into the chat interface automatically.
+  // See: bruce-bem-hybrid-auth-technical-approach.md for full auth flow.
+  useEffect(() => {
+    const autoLoginEnabled = startupConfig?.autoLoginEnabled;
+    const autoLoginEmail = startupConfig?.autoLoginEmail;
+    const autoLoginPassword = startupConfig?.autoLoginPassword;
+
+    if (autoLoginEnabled && autoLoginEmail && autoLoginPassword) {
+      console.log('Auto-login enabled, logging in automatically...');
+      login({ email: autoLoginEmail, password: autoLoginPassword });
+    }
+  }, [startupConfig, login]);
+
   // Render fallback UI if auto-redirect is active.
   if (shouldAutoRedirect) {
     return (

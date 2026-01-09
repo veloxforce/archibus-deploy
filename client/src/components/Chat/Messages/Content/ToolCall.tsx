@@ -160,7 +160,7 @@ export default function ToolCall({
       <div className="relative my-2.5 flex h-5 shrink-0 items-center gap-2.5">
         <ProgressText
           progress={progress}
-          // onClick={() => setShowInfo((prev) => !prev)}
+          onClick={() => setShowInfo((prev) => !prev)}
           inProgressText={
             function_name
               ? localize('com_assistants_running_var', { 0: function_name })
@@ -170,7 +170,7 @@ export default function ToolCall({
             !cancelled && authDomain.length > 0 ? localize('com_ui_requires_auth') : undefined
           }
           finishedText={getFinishedText()}
-          hasInput={false}
+          hasInput={true}
           isExpanded={showInfo}
           error={cancelled}
         />
