@@ -54,7 +54,7 @@ modelSpecs:
       preset:
         default: true
         endpoint: "agents"
-        agent_id: "agent_rqepYtgGOrSxGh3Yt0cOn"
+        agent_id: "agent_gqurI85JTEIv_d8blrhXo"
 
 mcpServers:
   bruce-bem:
