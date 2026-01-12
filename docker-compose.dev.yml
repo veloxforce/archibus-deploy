@@ -95,5 +95,5 @@ volumes:
 
 networks:
   archibus_network:
-    external: true
-    name: archibus_full-stack_archibus_network
+    name: archibus_librechat_network
+    # Not external - created if missing, reused if exists
