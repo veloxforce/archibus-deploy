@@ -17,9 +17,8 @@ start: ## Start services (without rebuild)
 stop: ## Stop all containers
 	docker compose -f docker-compose.dev.yml down
 
-restart: ## Restart services (picks up .env changes - requires rebuild for code changes)
-	docker compose -f docker-compose.dev.yml down
-	docker compose -f docker-compose.dev.yml up -d --build
+restart: ## Restart services (picks up config changes, NOT code changes)
+	docker compose -f docker-compose.dev.yml restart
 
 logs: ## Follow container logs
 	docker compose -f docker-compose.dev.yml logs -f
