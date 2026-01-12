@@ -34,8 +34,8 @@ services:
       - type: bind
         source: ./.env
         target: /app/.env
-      - ./images:/app/client/public/images
-      - ./uploads:/app/uploads
+      - dev_images:/app/client/public/images
+      - dev_uploads:/app/uploads
       - ./librechat.yaml:/app/librechat.yaml
       # Removed ./logs bind mount - causes root ownership issues. Container manages logs internally.
     networks:
@@ -92,6 +92,8 @@ volumes:
   dev_pgdata2:
   dev_mongodb_data:
   dev_meili_data:
+  dev_images:
+  dev_uploads:
 
 networks:
   archibus_network:
