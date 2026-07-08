@@ -7,7 +7,12 @@ services:
     depends_on:
       - mongodb
       - rag_api
-    image: ghcr.io/danny-avila/librechat:latest
+    # Rain-patched LibreChat built from source (v0.8.4 + librechat-patches/) — replaces
+    # the prebuilt ghcr.io/danny-avila/librechat:latest image so the auth patches ship.
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: librechat-rain-patched:from-source
     restart: always
     user: "${UID}:${GID}"
     healthcheck:
@@ -32,9 +37,6 @@ services:
       - ./images:/app/client/public/images
       - ./uploads:/app/uploads
       - ./logs:/app/api/logs
-    networks:
-      - default
-      - archibus_network
   mongodb:
     container_name: chat-mongodb
     image: mongo
@@ -58,9 +60,9 @@ services:
     container_name: vectordb
     image: pgvector/pgvector:0.8.0-pg15-trixie
     environment:
-      POSTGRES_DB: mydatabase
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: ${POSTGRES_DB:-mydatabase}
+      POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mypassword}
     restart: always
     volumes:
       - pgdata2:/var/lib/postgresql/data
@@ -76,10 +78,23 @@ services:
     env_file:
       - .env
 
+  # BruceBEM FastMCP tool server — ported in-distribution (previously an
+  # externally-run stack reached over an external Docker network).
+  # librechat.yaml's bruce-bem endpoint resolves to this service.
+  archibus_fastmcp:
+    container_name: archibus_fastmcp
+    build:
+      context: ./archibus_fastmcp
+      dockerfile: Dockerfile
+    restart: always
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; s=socket.socket(); s.settimeout(2); s.connect(('127.0.0.1',8000)); s.close()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
 volumes:
   pgdata2:
-
-networks:
-  archibus_network:
-    external: true
-    name: archibus_full-stack_archibus_network

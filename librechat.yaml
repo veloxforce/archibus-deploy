@@ -32,18 +32,15 @@ endpoints:
       titleConvo: true
       titleModel: "Qwen/Qwen3-14B"
       modelDisplayLabel: "RunPod Endpoint"
-      addParams:
-        chat_template_kwargs:
-          enable_thinking: false
 
     - name: "OpenRouter"
       apiKey: "${OPENROUTER_KEY}"
       baseURL: "https://openrouter.ai/api/v1"
       models:
-        default: ["x-ai/grok-4.1-fast:free"]
-        fetch: false
+        default: ["anthropic/claude-sonnet-4.6"]
+        fetch: true
       titleConvo: true
-      titleModel: "x-ai/grok-4.1-fast:free"
+      titleModel: "anthropic/claude-sonnet-4.6"
       dropParams: ["stop"]
       modelDisplayLabel: "OpenRouter"
 
@@ -54,11 +51,15 @@ modelSpecs:
       preset:
         default: true
         endpoint: "agents"
-        agent_id: "agent_gqurI85JTEIv_d8blrhXo"
+        agent_id: "agent_PHHeJ7reQRf0eQJwXS2M8"
+
+mcpSettings:
+  allowedDomains:
+    - "http://archibus_fastmcp:8000"
 
 mcpServers:
   bruce-bem:
-    url: "https://archibus-mcp.wilsch-deployment.com/mcp"
+    url: "http://archibus_fastmcp:8000/mcp"
     name: "Bruce BEM"
     type: "streamable-http"
     requiresOAuth: false
