@@ -15,3 +15,7 @@ docs
 
 # Ignore all hidden files
 .*
+
+# librechat-patches is build-context for Dockerfile.api (NOT the librechat.yaml runtime config)
+!librechat-patches
+!librechat-patches/**
