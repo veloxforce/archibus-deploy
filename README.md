@@ -47,6 +47,49 @@
 </p>
 
 
+# 🚀 FM Assistant deployment
+
+This distribution ships the ARCHIBUS **FM Assistant** (Rain-patched LibreChat + the Bruce
+BEM MCP tool server). A client VM with Docker can bring it up turnkey:
+
+```bash
+git clone https://github.com/veloxforce/archibus-deploy.git
+cd archibus-deploy
+cp .env.example .env
+# Fill the documented secrets in .env: CREDS_KEY/CREDS_IV, JWT_SECRET/JWT_REFRESH_SECRET,
+# MEILI_MASTER_KEY, POSTGRES_PASSWORD, OPENAI_API_KEY (embeddings), and the BEM credentials.
+docker compose up -d
+```
+
+The UI is then published on the host at `http://<host>:${API_PORT}` (default
+`http://localhost:3080`). Set `DOMAIN_CLIENT`/`DOMAIN_SERVER` in `.env` to that same host.
+`ALLOW_REGISTRATION=true` ships by default so you can create the first user at `/register`.
+A **Bruce Facility Management Assistant** agent is seeded automatically on first boot and is
+selectable from the model menu.
+
+## Standalone (STAGING_MODE) deployment
+
+By default the Bruce BEM tools authenticate with a **Rain user-token** forwarded from the
+Bruce BEM iframe. For a **standalone** deployment (no iframe — e.g. a client accessing the
+FM Assistant directly), enable the designed staging auth path instead: the MCP server then
+logs in with the BEM `USERNAME`/`PASSWORD` from `.env`.
+
+1. In `.env`, set `STAGING_MODE=true` and fill `USERNAME` / `PASSWORD` (plus the
+   `OAUTH_*` / `BEM_API_URL` / `USER_AUTH_URL` credentials).
+2. Bring the stack up with the staging overlay:
+
+   ```bash
+   docker compose \
+     -f docker-compose.yml \
+     -f docker-compose.override.yml \
+     -f docker-compose.staging.yml \
+     up -d
+   ```
+
+The `docker-compose.staging.yml` overlay forces `STAGING_MODE=true` on the
+`archibus_fastmcp` service, so a Bruce tool-call (e.g. `search_assets`) completes without
+an iframe Rain token. See issue #602 for the ship-with-confidence staging architecture.
+
 # ✨ Features
 
 - 🖥️ **UI & Experience** inspired by ChatGPT with enhanced design and features

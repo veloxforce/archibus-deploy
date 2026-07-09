@@ -28,6 +28,8 @@ services:
     depends_on:
       init-permissions:
         condition: service_completed_successfully
+      init-bruce-agent:
+        condition: service_completed_successfully
       mongodb:
         condition: service_started
       rag_api:
@@ -40,6 +42,10 @@ services:
     image: librechat-rain-patched:from-source
     restart: always
     user: "${UID:-1000}:${GID:-1000}"
+    # Publish the UI on the host so a naive `docker compose up` is reachable from
+    # outside the docker network. Host port is ${API_PORT} (default 3080) → container 3080.
+    ports:
+      - "${API_PORT:-3080}:3080"
     healthcheck:
       test: ["CMD", "wget", "--spider", "--quiet", "http://0.0.0.0:3080/health"]
       interval: 30s
@@ -54,7 +60,8 @@ services:
       - MEILI_HOST=http://meilisearch:7700
       - RAG_PORT=${RAG_PORT:-8000}
       - RAG_API_URL=http://rag_api:${RAG_PORT:-8000}
-      - DOMAIN_SERVER=https://librechat.veloxforce.dev
+      # Resolve to the client's configured host from .env (no hardcoded Wilsch domain).
+      - DOMAIN_SERVER=${DOMAIN_SERVER:-http://localhost:3080}
     volumes:
       - type: bind
         source: ./.env
@@ -64,6 +71,23 @@ services:
       - images_data:/app/client/public/images
       - uploads_data:/app/uploads
       - logs_data:/app/logs
+  # One-shot seed: create the "Bruce Facility Management Assistant" DB agent
+  # (id agent_PHHeJ7reQRf0eQJwXS2M8, referenced by librechat.yaml's modelSpec) so a
+  # fresh clone has a selectable agent out of the box. Idempotent — exits early if the
+  # agent already exists. Same init-container pattern as init-permissions; the api
+  # service gates on its successful completion.
+  init-bruce-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: librechat-rain-patched:from-source
+    command: ["node", "config/seed-bruce-agent.js"]
+    restart: "no"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/LibreChat
+    depends_on:
+      mongodb:
+        condition: service_started
   mongodb:
     container_name: chat-mongodb
     image: mongo

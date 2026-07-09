@@ -1,0 +1,22 @@
+# Standalone (STAGING_MODE) overlay — issue #602 "ship-with-confidence" staging architecture.
+#
+# The default deploy expects a Rain user-token forwarded from the Bruce BEM iframe; a
+# standalone deployment has no iframe, so archibus_fastmcp's AuthPersistenceMiddleware
+# dead-ends at "Rain user token required...". This overlay flips the MCP server onto its
+# designed standalone auth path: STAGING_MODE=true makes it authenticate directly with the
+# BEM USERNAME/PASSWORD from .env instead of a per-request Rain token.
+#
+# Usage (from a fresh clone, after filling .env incl. BEM USERNAME/PASSWORD):
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.override.yml \
+#     -f docker-compose.staging.yml \
+#     up -d
+#
+# Prerequisite: set STAGING_MODE=true (this overlay also forces it) and fill USERNAME /
+# PASSWORD plus the OAuth/BEM URL vars in .env — see the "Standalone / staging auth"
+# block in .env.example.
+services:
+  archibus_fastmcp:
+    environment:
+      - STAGING_MODE=true
