@@ -34,16 +34,21 @@ services:
       - type: bind
         source: ./.env
         target: /app/.env
-      - ./images:/app/client/public/images
-      - ./uploads:/app/uploads
-      - ./logs:/app/api/logs
+      # Named volumes (not host bind mounts): Docker initializes an empty named
+      # volume from the image's mountpoint, so the non-root ${UID}:${GID} user can
+      # write. A bind mount to a missing host dir is created root:root and breaks
+      # the override (issue #2192). ./logs is intentionally dropped — LibreChat
+      # writes logs inside the container; the host bind only re-introduced the
+      # root:root EACCES on /app/api/logs.
+      - images_data:/app/client/public/images
+      - uploads_data:/app/uploads
   mongodb:
     container_name: chat-mongodb
     image: mongo
     restart: always
     user: "${UID}:${GID}"
     volumes:
-      - ./data-node:/data/db
+      - mongo_data:/data/db
     command: mongod --noauth
   meilisearch:
     container_name: chat-meilisearch
@@ -55,7 +60,7 @@ services:
       - MEILI_NO_ANALYTICS=true
       - MEILI_MASTER_KEY=${MEILI_MASTER_KEY}
     volumes:
-      - ./meili_data_v1.12:/meili_data
+      - meili_data:/meili_data
   vectordb:
     container_name: vectordb
     image: pgvector/pgvector:0.8.0-pg15-trixie
@@ -98,3 +103,7 @@ services:
 
 volumes:
   pgdata2:
+  mongo_data:
+  meili_data:
+  images_data:
+  uploads_data:
