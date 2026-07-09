@@ -54,6 +54,9 @@ COPY --chown=node:node librechat-patches/api/server/controllers/agents/client.js
 COPY --chown=node:node librechat-patches/api/server/services/MCP.js api/server/services/MCP.js
 COPY --chown=node:node librechat-patches/api/server/routes/config.js api/server/routes/config.js
 
+# Bruce agent seed script (run once by the init-bruce-agent service in docker-compose.yml)
+COPY --chown=node:node librechat-patches/config/seed-bruce-agent.js config/seed-bruce-agent.js
+
 # Shared packages (TypeScript, compiled during build)
 COPY --chown=node:node librechat-patches/packages/data-provider/src/config.ts packages/data-provider/src/config.ts
 COPY --chown=node:node librechat-patches/packages/data-provider/src/createPayload.ts packages/data-provider/src/createPayload.ts
