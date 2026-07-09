@@ -2,11 +2,36 @@
 # Refer to `docker-compose.override.yaml.example’ for some sample configurations.
 
 services:
+  # Fresh-clone permission fix (issue #2192). api/mongodb/meilisearch run as the
+  # non-root ${UID:-1000}:${GID:-1000} user, but Docker initializes empty named
+  # volumes owned root:root — so the override user cannot write (mongod exitCode
+  # 100, meilisearch/LibreChat "permission denied"). This one-shot init container
+  # runs as root and chowns every mounted data volume to the same id before the
+  # app services start; they gate on it via `service_completed_successfully`.
+  # UID/GID default to 1000 so a fresh `cp .env.example .env && docker compose up`
+  # works with no host-side setup — data lives in docker-managed named volumes, so
+  # the container uid need not match any host user (set UID/GID in .env only if you
+  # want a specific owner). The init chown and the app `user:` MUST use the same id.
+  init-permissions:
+    image: alpine:latest
+    user: "0:0"
+    volumes:
+      - mongo_data:/vol/data-node
+      - meili_data:/vol/meili-data
+      - images_data:/vol/images
+      - uploads_data:/vol/uploads
+      - logs_data:/vol/logs
+    command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /vol/data-node /vol/meili-data /vol/images /vol/uploads /vol/logs && echo 'permissions initialized for ${UID:-1000}:${GID:-1000}'"
+    restart: "no"
   api:
     container_name: LibreChat
     depends_on:
-      - mongodb
-      - rag_api
+      init-permissions:
+        condition: service_completed_successfully
+      mongodb:
+        condition: service_started
+      rag_api:
+        condition: service_started
     # Rain-patched LibreChat built from source (v0.8.4 + librechat-patches/) — replaces
     # the prebuilt ghcr.io/danny-avila/librechat:latest image so the auth patches ship.
     build:
@@ -14,7 +39,7 @@ services:
       dockerfile: Dockerfile.api
     image: librechat-rain-patched:from-source
     restart: always
-    user: "${UID}:${GID}"
+    user: "${UID:-1000}:${GID:-1000}"
     healthcheck:
       test: ["CMD", "wget", "--spider", "--quiet", "http://0.0.0.0:3080/health"]
       interval: 30s
@@ -34,28 +59,36 @@ services:
       - type: bind
         source: ./.env
         target: /app/.env
-      - ./images:/app/client/public/images
-      - ./uploads:/app/uploads
-      - ./logs:/app/api/logs
+      # Named volumes (not host bind mounts) chowned by init-permissions above, so
+      # the non-root ${UID}:${GID} user can write on a fresh clone (issue #2192).
+      - images_data:/app/client/public/images
+      - uploads_data:/app/uploads
+      - logs_data:/app/logs
   mongodb:
     container_name: chat-mongodb
     image: mongo
     restart: always
-    user: "${UID}:${GID}"
+    user: "${UID:-1000}:${GID:-1000}"
+    depends_on:
+      init-permissions:
+        condition: service_completed_successfully
     volumes:
-      - ./data-node:/data/db
+      - mongo_data:/data/db
     command: mongod --noauth
   meilisearch:
     container_name: chat-meilisearch
     image: getmeili/meilisearch:v1.12.3
     restart: always
-    user: "${UID}:${GID}"
+    user: "${UID:-1000}:${GID:-1000}"
+    depends_on:
+      init-permissions:
+        condition: service_completed_successfully
     environment:
       - MEILI_HOST=http://meilisearch:7700
       - MEILI_NO_ANALYTICS=true
       - MEILI_MASTER_KEY=${MEILI_MASTER_KEY}
     volumes:
-      - ./meili_data_v1.12:/meili_data
+      - meili_data:/meili_data
   vectordb:
     container_name: vectordb
     image: pgvector/pgvector:0.8.0-pg15-trixie
@@ -98,3 +131,8 @@ services:
 
 volumes:
   pgdata2:
+  mongo_data:
+  meili_data:
+  images_data:
+  uploads_data:
+  logs_data:
