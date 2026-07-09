@@ -28,8 +28,6 @@ services:
     depends_on:
       init-permissions:
         condition: service_completed_successfully
-      init-bruce-agent:
-        condition: service_completed_successfully
       mongodb:
         condition: service_started
       rag_api:
@@ -74,8 +72,13 @@ services:
   # One-shot seed: create the "Bruce Facility Management Assistant" DB agent
   # (id agent_PHHeJ7reQRf0eQJwXS2M8, referenced by librechat.yaml's modelSpec) so a
   # fresh clone has a selectable agent out of the box. Idempotent — exits early if the
-  # agent already exists. Same init-container pattern as init-permissions; the api
-  # service gates on its successful completion.
+  # agent already exists.
+  #
+  # Runs AFTER api is healthy (not before): the seed grants the agent public VIEW via
+  # the `agent_viewer` access-role, and that role is seeded by the api service at
+  # startup. Gating the seed on `api: service_healthy` guarantees the role exists when
+  # grantPermission runs — otherwise the share silently fails ("Role agent_viewer not
+  # found") and the agent is created but unselectable by any user (issue #2200 AC4).
   init-bruce-agent:
     build:
       context: .
@@ -88,6 +91,8 @@ services:
     depends_on:
       mongodb:
         condition: service_started
+      api:
+        condition: service_healthy
   mongodb:
     container_name: chat-mongodb
     image: mongo
