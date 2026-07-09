@@ -3,12 +3,15 @@
 
 services:
   # Fresh-clone permission fix (issue #2192). api/mongodb/meilisearch run as the
-  # non-root ${UID}:${GID} user, but Docker initializes empty named volumes (and
-  # would create missing host bind dirs) owned root:root — so the override user
-  # cannot write (mongod exitCode 100, meilisearch/LibreChat "permission denied").
-  # This one-shot init container runs as root and chowns every mounted data volume
-  # to ${UID}:${GID} before the app services start; they gate on it via
-  # `service_completed_successfully`. Requires UID/GID set in .env.
+  # non-root ${UID:-1000}:${GID:-1000} user, but Docker initializes empty named
+  # volumes owned root:root — so the override user cannot write (mongod exitCode
+  # 100, meilisearch/LibreChat "permission denied"). This one-shot init container
+  # runs as root and chowns every mounted data volume to the same id before the
+  # app services start; they gate on it via `service_completed_successfully`.
+  # UID/GID default to 1000 so a fresh `cp .env.example .env && docker compose up`
+  # works with no host-side setup — data lives in docker-managed named volumes, so
+  # the container uid need not match any host user (set UID/GID in .env only if you
+  # want a specific owner). The init chown and the app `user:` MUST use the same id.
   init-permissions:
     image: alpine:latest
     user: "0:0"
@@ -18,7 +21,7 @@ services:
       - images_data:/vol/images
       - uploads_data:/vol/uploads
       - logs_data:/vol/logs
-    command: sh -c "chown -R ${UID}:${GID} /vol/data-node /vol/meili-data /vol/images /vol/uploads /vol/logs && echo 'permissions initialized for ${UID}:${GID}'"
+    command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /vol/data-node /vol/meili-data /vol/images /vol/uploads /vol/logs && echo 'permissions initialized for ${UID:-1000}:${GID:-1000}'"
     restart: "no"
   api:
     container_name: LibreChat
@@ -36,7 +39,7 @@ services:
       dockerfile: Dockerfile.api
     image: librechat-rain-patched:from-source
     restart: always
-    user: "${UID}:${GID}"
+    user: "${UID:-1000}:${GID:-1000}"
     healthcheck:
       test: ["CMD", "wget", "--spider", "--quiet", "http://0.0.0.0:3080/health"]
       interval: 30s
@@ -65,7 +68,7 @@ services:
     container_name: chat-mongodb
     image: mongo
     restart: always
-    user: "${UID}:${GID}"
+    user: "${UID:-1000}:${GID:-1000}"
     depends_on:
       init-permissions:
         condition: service_completed_successfully
@@ -76,7 +79,7 @@ services:
     container_name: chat-meilisearch
     image: getmeili/meilisearch:v1.12.3
     restart: always
-    user: "${UID}:${GID}"
+    user: "${UID:-1000}:${GID:-1000}"
     depends_on:
       init-permissions:
         condition: service_completed_successfully
