@@ -1,259 +1,228 @@
-<p align="center">
-  <a href="https://librechat.ai">
-    <img src="client/public/assets/logo.svg" height="256">
-  </a>
-  <h1 align="center">
-    <a href="https://librechat.ai">LibreChat</a>
-  </h1>
-</p>
+# FM Assistant — Client Deployment & Operations Guide
 
-<p align="center">
-  <a href="https://discord.librechat.ai"> 
-    <img
-      src="https://img.shields.io/discord/1086345563026489514?label=&logo=discord&style=for-the-badge&logoWidth=20&logoColor=white&labelColor=000000&color=blueviolet">
-  </a>
-  <a href="https://www.youtube.com/@LibreChat"> 
-    <img
-      src="https://img.shields.io/badge/YOUTUBE-red.svg?style=for-the-badge&logo=youtube&logoColor=white&labelColor=000000&logoWidth=20">
-  </a>
-  <a href="https://docs.librechat.ai"> 
-    <img
-      src="https://img.shields.io/badge/DOCS-blue.svg?style=for-the-badge&logo=read-the-docs&logoColor=white&labelColor=000000&logoWidth=20">
-  </a>
-  <a aria-label="Sponsors" href="https://github.com/sponsors/danny-avila">
-    <img
-      src="https://img.shields.io/badge/SPONSORS-brightgreen.svg?style=for-the-badge&logo=github-sponsors&logoColor=white&labelColor=000000&logoWidth=20">
-  </a>
-</p>
+The **FM Assistant** is a self-contained chat application that lets facility-management users talk to their **Bruce BEM** system in plain language — "search for the primary chilled-water pump," "create a work request for asset 49641" — and have it call the Bruce BEM API for them. It ships as one bundle you run on your own Linux VM.
 
-<p align="center">
-<a href="https://railway.app/template/b5k2mn?referralCode=HI9hWz">
-  <img src="https://railway.app/button.svg" alt="Deploy on Railway" height="30">
-</a>
-<a href="https://zeabur.com/templates/0X2ZY8">
-  <img src="https://zeabur.com/button.svg" alt="Deploy on Zeabur" height="30"/>
-</a>
-<a href="https://template.cloud.sealos.io/deploy?templateName=librechat">
-  <img src="https://raw.githubusercontent.com/labring-actions/templates/main/Deploy-on-Sealos.svg" alt="Deploy on Sealos" height="30">
-</a>
-</p>
+Under the hood it's a **Rain-patched [LibreChat](https://librechat.ai)** (the chat UI + AI runtime) wired to a **Bruce BEM MCP tool server** (the bridge that turns a chat request into a Bruce API call). The whole system is **6 Docker containers** brought up with a single `docker compose` command — you operate them as one unit, not individually.
 
-<p align="center">
-  <a href="https://www.librechat.ai/docs/translation">
-    <img 
-      src="https://img.shields.io/badge/dynamic/json.svg?style=for-the-badge&color=2096F3&label=locize&query=%24.translatedPercentage&url=https://api.locize.app/badgedata/4cb2598b-ed4d-469c-9b04-2ed531a8cb45&suffix=%+translated" 
-      alt="Translation Progress">
-  </a>
-</p>
+It runs in **two modes**, and you choose one at install time:
+- **Standalone** — users open FM Assistant directly in a browser and log in to the chat app itself. Bruce calls run under one configured Bruce service account. *(This is `STAGING_MODE`.)*
+- **Embedded (iframe)** — FM Assistant is embedded inside Bruce BEM; each user's Bruce calls run as **themselves**, using the token Bruce BEM forwards. Requires a Bruce-side integration.
 
+This guide covers both, end-to-end: prerequisites, install, the `.env` reference, and day-2 operations (troubleshooting, logging, backup, monitoring).
 
-# 🚀 FM Assistant deployment
+---
 
-This distribution ships the ARCHIBUS **FM Assistant** (Rain-patched LibreChat + the Bruce
-BEM MCP tool server). A client VM with Docker can bring it up turnkey:
+## 1. Glossary — only what you need to operate
+
+| Term | What it means for you |
+|---|---|
+| **LibreChat** | The chat interface your users talk to — a web UI in the browser. It's the "chat UI + AI runtime." |
+| **MCP server** | The bridge between LibreChat and the **Bruce BEM API**. When a user asks "search for assets" or "create a work request," LibreChat asks the MCP server, which calls Bruce BEM. |
+| **Bruce BEM** | Your facilities/asset-management system. FM Assistant reads from and writes to it through the MCP server — it's the system of record, FM Assistant is the conversational front door. |
+| **The Bruce agent** | A pre-built assistant — **"Bruce Facility Management Assistant"** — seeded automatically on first boot and pre-selected in the model menu. It's what carries the Bruce tools; users just pick it and chat. |
+| **Standalone mode** (`STAGING_MODE=true`) | FM Assistant runs on its own; users log into the chat app directly, and Bruce calls run under one configured Bruce service account. |
+| **Embedded mode** (iframe) | FM Assistant runs *inside* Bruce BEM; each user's Bruce calls run as themselves, using the token Bruce forwards. |
+
+Everything else in the stack — **MongoDB, Meilisearch, pgvector, rag_api** — is internal plumbing. You don't operate them individually; treat the **6 containers as one bundled system** brought up with a single command.
+
+---
+
+## 2. Architecture
+
+**The bundle: 6 Docker containers, one network, started together.**
+
+| Container | What it does | Exposed? |
+|---|---|---|
+| **api** | LibreChat — the chat UI your users see | ✅ published on the host (`API_PORT`, default 3080) |
+| **archibus_fastmcp** | MCP server — the bridge to Bruce BEM | internal only (port 8000) |
+| **mongodb** | Chat history, users, agent config | internal only |
+| **meilisearch** | Message search index (rebuildable) | internal only |
+| **vectordb** | Document embeddings for RAG (rebuildable) | internal only |
+| **rag_api** | Document Q&A engine | internal only |
+
+**How they talk.** All 6 share one Docker network. LibreChat reaches the MCP server at the internal hostname `http://archibus_fastmcp:8000/mcp` — never an external URL. **Only the `api` (UI) container is exposed** to the host; you put your reverse proxy + TLS in front of that.
+
+**The two auth models** — this is the one architectural choice you make:
+
+| | **Standalone** (`STAGING_MODE=true`) | **Embedded** (iframe, default) |
+|---|---|---|
+| How users reach it | Browse to FM Assistant directly, register/log in | Open it *inside* Bruce BEM |
+| Who Bruce calls run as | One **shared service account** (`USERNAME`/`PASSWORD` in `.env`) | **Each user, as themselves** (Rain token Bruce forwards) |
+| Bruce-side setup needed | None | Yes — Bruce embeds the iframe + injects tokens |
+| Best when | A standalone FM Assistant, no Bruce login required | Users already work inside Bruce BEM |
+
+Both models use the **same Bruce OAuth credentials** (`OAUTH_CLIENT_ID` / `CLIENT_SECRET` / `AUDIENCE` / `OAUTH_URL`) — the difference is only *how the per-user token is obtained*. §4 shows the install for each; §5 lists which `.env` vars each needs.
+
+---
+
+## 3. Prerequisites
+
+| What | Recommended |
+|---|---|
+| **OS** | Dedicated Linux VM — Ubuntu 22.04 or 24.04 LTS |
+| **CPU / RAM** | 4 vCPU / 8 GB comfortable; 2 / 4 minimum. *(The `api` image builds frontend assets on first boot — 8 GB avoids the memory-pressure build failure noted in §6.)* |
+| **Disk** | 50 GB (volumes ≤ ~5 GB; headroom for logs + growth) |
+| **Docker** | Docker Engine 24+ (includes Compose v2). Install: `https://get.docker.com/` |
+| **Outbound network** | HTTPS to the **Bruce BEM API** + auth URLs, your **AI provider** (OpenRouter + OpenAI), and Docker/registry.librechat.ai |
+| **Domain** | A public domain (e.g. `fm-assistant.your-domain.com`) with a valid **TLS cert** |
+| **Reverse proxy** | nginx / Caddy / Traefik terminating HTTPS → `localhost:${API_PORT}` (3080) |
+| **AI provider keys** | **OpenRouter key** (`OPENROUTER_KEY`) — powers the chat + the Bruce agent; one key reaches all frontier models (default: Claude Sonnet 4.6). **OpenAI key** (`OPENAI_API_KEY`) — powers document-embeddings only (`rag_api`); required even on OpenRouter, or `rag_api` crash-loops. |
+| **Bruce BEM credentials** | From the **Bruce team (Rein Suurväli)** — OAuth M2M client (`OAUTH_CLIENT_ID` / `CLIENT_SECRET`), `USER_API_CLIENT_ID`, the OAuth + BEM + user-auth URLs, and — for standalone mode — a Bruce `USERNAME` / `PASSWORD`. Full list in §5. |
+
+**Per environment.** If you run more than one environment (e.g. Qatar **dev** and **pre**), each needs its own Bruce credential set and URLs — same variable names, different values.
+
+---
+
+## 4. Install
+
+**Common steps (both modes):**
 
 ```bash
+# 1. Get the code
 git clone https://github.com/veloxforce/archibus-deploy.git
 cd archibus-deploy
+
+# 2. Create your env file and fill it in (see §5 for every variable)
 cp .env.example .env
-# Fill the documented secrets in .env: CREDS_KEY/CREDS_IV, JWT_SECRET/JWT_REFRESH_SECRET,
-# MEILI_MASTER_KEY, POSTGRES_PASSWORD, OPENAI_API_KEY (embeddings), and the BEM credentials.
-docker compose up -d
+#    - set a stable COMPOSE_PROJECT_NAME (e.g. fm-assistant-prod) so volumes survive renames
+#    - set DOMAIN_CLIENT / DOMAIN_SERVER to your public host
+#    - fill the Bruce credentials from Rein, plus OPENROUTER_KEY + OPENAI_API_KEY
 ```
 
-The UI is then published on the host at `http://<host>:${API_PORT}` (default
-`http://localhost:3080`). Set `DOMAIN_CLIENT`/`DOMAIN_SERVER` in `.env` to that same host.
-`ALLOW_REGISTRATION=true` ships by default so you can create the first user at `/register`.
-A **Bruce Facility Management Assistant** agent is seeded automatically on first boot and is
-selectable from the model menu.
+Then pick **one** mode below. When it's up, **wait for all 6 containers healthy**:
 
-## Standalone (STAGING_MODE) deployment
+```bash
+docker compose ps        # all 6 should read (healthy) within ~90s
+```
 
-By default the Bruce BEM tools authenticate with a **Rain user-token** forwarded from the
-Bruce BEM iframe. For a **standalone** deployment (no iframe — e.g. a client accessing the
-FM Assistant directly), enable the designed staging auth path instead: the MCP server then
-logs in with the BEM `USERNAME`/`PASSWORD` from `.env`.
+> **First-boot note:** on a low-memory VM the *first* build can silently ship a broken `api` image (the frontend build fails under memory pressure). If the UI returns 502, just rebuild — `docker compose ... up -d --build` again reaches 6/6. See §6.
 
-1. In `.env`, set `STAGING_MODE=true` and fill `USERNAME` / `PASSWORD` (plus the
-   `OAUTH_*` / `BEM_API_URL` / `USER_AUTH_URL` credentials).
-2. Bring the stack up with the staging overlay:
+### 4a — Standalone mode (`STAGING_MODE=true`)
 
-   ```bash
-   docker compose \
-     -f docker-compose.yml \
-     -f docker-compose.override.yml \
-     -f docker-compose.staging.yml \
-     up -d
-   ```
+In `.env`: set `STAGING_MODE=true` and fill `USERNAME` / `PASSWORD` (the shared Bruce account). Bring the stack up with the staging overlay:
 
-The `docker-compose.staging.yml` overlay forces `STAGING_MODE=true` on the
-`archibus_fastmcp` service, so a Bruce tool-call (e.g. `search_assets`) completes without
-an iframe Rain token. See issue #602 for the ship-with-confidence staging architecture.
+```bash
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.override.yml \
+  -f docker-compose.staging.yml \
+  up -d --build
+```
 
-# ✨ Features
+Then:
+1. Point your reverse proxy at `localhost:${API_PORT}` (3080).
+2. Open `https://your-domain/` → **register the first user** at `/register` (`ALLOW_REGISTRATION=true` ships on).
+3. In the chat, the **"Bruce Facility Management Assistant"** agent is already selected. Ask *"search for assets"* — a real Bruce `search_assets` call should return live assets.
 
-- 🖥️ **UI & Experience** inspired by ChatGPT with enhanced design and features
+### 4b — Embedded mode (iframe, `STAGING_MODE=false`)
 
-- 🤖 **AI Model Selection**:  
-  - Anthropic (Claude), AWS Bedrock, OpenAI, Azure OpenAI, Google, Vertex AI, OpenAI Responses API (incl. Azure)
-  - [Custom Endpoints](https://www.librechat.ai/docs/quick_start/custom_endpoints): Use any OpenAI-compatible API with LibreChat, no proxy required
-  - Compatible with [Local & Remote AI Providers](https://www.librechat.ai/docs/configuration/librechat_yaml/ai_endpoints):
-    - Ollama, groq, Cohere, Mistral AI, Apple MLX, koboldcpp, together.ai,
-    - OpenRouter, Perplexity, ShuttleAI, Deepseek, Qwen, and more
+Leave `STAGING_MODE=false` (default). Bring the stack up normally:
 
-- 🔧 **[Code Interpreter API](https://www.librechat.ai/docs/features/code_interpreter)**: 
-  - Secure, Sandboxed Execution in Python, Node.js (JS/TS), Go, C/C++, Java, PHP, Rust, and Fortran
-  - Seamless File Handling: Upload, process, and download files directly
-  - No Privacy Concerns: Fully isolated and secure execution
+```bash
+docker compose up -d --build
+```
 
-- 🔦 **Agents & Tools Integration**:  
-  - **[LibreChat Agents](https://www.librechat.ai/docs/features/agents)**:
-    - No-Code Custom Assistants: Build specialized, AI-driven helpers
-    - Agent Marketplace: Discover and deploy community-built agents
-    - Collaborative Sharing: Share agents with specific users and groups
-    - Flexible & Extensible: Use MCP Servers, tools, file search, code execution, and more
-    - Compatible with Custom Endpoints, OpenAI, Azure, Anthropic, AWS Bedrock, Google, Vertex AI, Responses API, and more
-    - [Model Context Protocol (MCP) Support](https://modelcontextprotocol.io/clients#librechat) for Tools
-
-- 🔍 **Web Search**:  
-  - Search the internet and retrieve relevant information to enhance your AI context
-  - Combines search providers, content scrapers, and result rerankers for optimal results
-  - **[Learn More →](https://www.librechat.ai/docs/features/web_search)**
-
-- 🪄 **Generative UI with Code Artifacts**:  
-  - [Code Artifacts](https://youtu.be/GfTj7O4gmd0?si=WJbdnemZpJzBrJo3) allow creation of React, HTML, and Mermaid diagrams directly in chat
-
-- 🎨 **Image Generation & Editing**
-  - Text-to-image and image-to-image with [GPT-Image-1](https://www.librechat.ai/docs/features/image_gen#1--openai-image-tools-recommended)
-  - Text-to-image with [DALL-E (3/2)](https://www.librechat.ai/docs/features/image_gen#2--dalle-legacy), [Stable Diffusion](https://www.librechat.ai/docs/features/image_gen#3--stable-diffusion-local), [Flux](https://www.librechat.ai/docs/features/image_gen#4--flux), or any [MCP server](https://www.librechat.ai/docs/features/image_gen#5--model-context-protocol-mcp)
-  - Produce stunning visuals from prompts or refine existing images with a single instruction
-
-- 💾 **Presets & Context Management**:  
-  - Create, Save, & Share Custom Presets  
-  - Switch between AI Endpoints and Presets mid-chat
-  - Edit, Resubmit, and Continue Messages with Conversation branching  
-  - Create and share prompts with specific users and groups
-  - [Fork Messages & Conversations](https://www.librechat.ai/docs/features/fork) for Advanced Context control
-
-- 💬 **Multimodal & File Interactions**:  
-  - Upload and analyze images with Claude 3, GPT-4.5, GPT-4o, o1, Llama-Vision, and Gemini 📸  
-  - Chat with Files using Custom Endpoints, OpenAI, Azure, Anthropic, AWS Bedrock, & Google 🗃️
-
-- 🌎 **Multilingual UI**:
-  - English, 中文 (简体), 中文 (繁體), العربية, Deutsch, Español, Français, Italiano
-  - Polski, Português (PT), Português (BR), Русский, 日本語, Svenska, 한국어, Tiếng Việt
-  - Türkçe, Nederlands, עברית, Català, Čeština, Dansk, Eesti, فارسی
-  - Suomi, Magyar, Հայերեն, Bahasa Indonesia, ქართული, Latviešu, ไทย, ئۇيغۇرچە
-
-- 🧠 **Reasoning UI**:  
-  - Dynamic Reasoning UI for Chain-of-Thought/Reasoning AI models like DeepSeek-R1
-
-- 🎨 **Customizable Interface**:  
-  - Customizable Dropdown & Interface that adapts to both power users and newcomers
-
-- 🗣️ **Speech & Audio**:  
-  - Chat hands-free with Speech-to-Text and Text-to-Speech  
-  - Automatically send and play Audio  
-  - Supports OpenAI, Azure OpenAI, and Elevenlabs
-
-- 📥 **Import & Export Conversations**:  
-  - Import Conversations from LibreChat, ChatGPT, Chatbot UI  
-  - Export conversations as screenshots, markdown, text, json
-
-- 🔍 **Search & Discovery**:  
-  - Search all messages/conversations
-
-- 👥 **Multi-User & Secure Access**:
-  - Multi-User, Secure Authentication with OAuth2, LDAP, & Email Login Support
-  - Built-in Moderation, and Token spend tools
-
-- ⚙️ **Configuration & Deployment**:  
-  - Configure Proxy, Reverse Proxy, Docker, & many Deployment options  
-  - Use completely local or deploy on the cloud
-
-- 📖 **Open-Source & Community**:  
-  - Completely Open-Source & Built in Public  
-  - Community-driven development, support, and feedback
-
-[For a thorough review of our features, see our docs here](https://docs.librechat.ai/) 📚
-
-## 🪶 All-In-One AI Conversations with LibreChat
-
-LibreChat brings together the future of assistant AIs with the revolutionary technology of OpenAI's ChatGPT. Celebrating the original styling, LibreChat gives you the ability to integrate multiple AI models. It also integrates and enhances original client features such as conversation and message search, prompt templates and plugins.
-
-With LibreChat, you no longer need to opt for ChatGPT Plus and can instead use free or pay-per-call APIs. We welcome contributions, cloning, and forking to enhance the capabilities of this advanced chatbot platform.
-
-[![Watch the video](https://raw.githubusercontent.com/LibreChat-AI/librechat.ai/main/public/images/changelog/v0.7.6.gif)](https://www.youtube.com/watch?v=ilfwGQtJNlI)
-
-Click on the thumbnail to open the video☝️
+Then:
+1. Point your reverse proxy at `localhost:${API_PORT}` (3080).
+2. **Bruce-side cutover** (done by the Bruce team): update the FM Assistant iframe `src` in Bruce BEM to `https://your-domain/?userToken=…&refreshToken=…`. The token query params are unchanged — only the host changes.
+3. Smoke test: open Bruce BEM → the FM Assistant iframe → ask *"search for assets"* → confirm the tool call succeeds under your own Bruce identity.
 
 ---
 
-## 🌐 Resources
+## 5. `.env` — what you must fill
 
-**GitHub Repo:**
-  - **RAG API:** [github.com/danny-avila/rag_api](https://github.com/danny-avila/rag_api)
-  - **Website:** [github.com/LibreChat-AI/librechat.ai](https://github.com/LibreChat-AI/librechat.ai)
+`.env.example` ships with working defaults for everything internal (ports, DB names, embeddings, registration). **You only need to set these:**
 
-**Other:**
-  - **Website:** [librechat.ai](https://librechat.ai)
-  - **Documentation:** [librechat.ai/docs](https://librechat.ai/docs)
-  - **Blog:** [librechat.ai/blog](https://librechat.ai/blog)
+```bash
+# ── Secrets — generate your own (LibreChat has a generator; never reuse examples) ──
+CREDS_KEY=                 # 32-byte hex
+CREDS_IV=                  # 16-byte hex
+JWT_SECRET=                # random 32+ char
+JWT_REFRESH_SECRET=        # random 32+ char
+MEILI_MASTER_KEY=          # random 32+ char
+POSTGRES_PASSWORD=         # any strong value
 
----
+# ── Your host ─────────────────────────────────────────────────────
+DOMAIN_CLIENT=https://your-domain    # change from the localhost default
+DOMAIN_SERVER=https://your-domain
 
-## 📝 Changelog
+# ── AI provider keys ──────────────────────────────────────────────
+OPENROUTER_KEY=            # chat + Bruce agent (all frontier models)
+OPENAI_API_KEY=            # embeddings only — required, or rag_api crash-loops
 
-Keep up with the latest updates by visiting the releases page and notes:
-- [Releases](https://github.com/danny-avila/LibreChat/releases)
-- [Changelog](https://www.librechat.ai/changelog) 
+# ── Bruce BEM auth [both modes] — from Rein ───────────────────────
+OAUTH_CLIENT_ID=           # Bruce OAuth M2M client id
+CLIENT_SECRET=             # Bruce OAuth M2M secret
+OAUTH_URL=                 # Bruce token URL (…/oauth/token)
+AUDIENCE=                  # Bruce OAuth audience
+USER_API_CLIENT_ID=        # Bruce user-API client id
+BEM_API_URL=               # full URL, incl. https:// and trailing /api/
+USER_AUTH_URL=             # full URL, incl. https:// and trailing /api/
 
-**⚠️ Please consult the [changelog](https://www.librechat.ai/changelog) for breaking changes before updating.**
+# ── Standalone mode only ──────────────────────────────────────────
+STAGING_MODE=true          # set true for standalone (default is false = embedded)
+USERNAME=                  # shared Bruce account — all users' calls run as this
+PASSWORD=                  # that account's password
+```
 
----
-
-## ⭐ Star History
-
-<p align="center">
-  <a href="https://star-history.com/#danny-avila/LibreChat&Date">
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=danny-avila/LibreChat&type=Date&theme=dark" onerror="this.src='https://api.star-history.com/svg?repos=danny-avila/LibreChat&type=Date'" />
-  </a>
-</p>
-<p align="center">
-  <a href="https://trendshift.io/repositories/4685" target="_blank" style="padding: 10px;">
-    <img src="https://trendshift.io/api/badge/repositories/4685" alt="danny-avila%2FLibreChat | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/>
-  </a>
-  <a href="https://runacap.com/ross-index/q1-24/" target="_blank" rel="noopener" style="margin-left: 20px;">
-    <img style="width: 260px; height: 56px" src="https://runacap.com/wp-content/uploads/2024/04/ROSS_badge_white_Q1_2024.svg" alt="ROSS Index - Fastest Growing Open-Source Startups in Q1 2024 | Runa Capital" width="260" height="56"/>
-  </a>
-</p>
-
----
-
-## ✨ Contributions
-
-Contributions, suggestions, bug reports and fixes are welcome!
-
-For new features, components, or extensions, please open an issue and discuss before sending a PR.
-
-If you'd like to help translate LibreChat into your language, we'd love your contribution! Improving our translations not only makes LibreChat more accessible to users around the world but also enhances the overall user experience. Please check out our [Translation Guide](https://www.librechat.ai/docs/translation).
+> Everything else in `.env.example` (`API_PORT`, `POSTGRES_DB/USER`, `ALLOW_REGISTRATION`, `EMBEDDINGS_*`) already works as shipped — change it only if you have a reason.
 
 ---
 
-## 💖 This project exists in its current state thanks to all the people who contribute
+## 6. Troubleshooting
 
-<a href="https://github.com/danny-avila/LibreChat/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=danny-avila/LibreChat" />
-</a>
+First move for any container issue: `docker compose ps` (find who's unhealthy), then `docker compose logs <service> --tail 100`.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| UI returns **502 / won't load** right after first boot | `api` built a broken frontend under memory pressure (silent, first build only) | Rebuild: `docker compose … up -d --build` — reaches 6/6. Give the VM ≥ 8 GB (§3). |
+| `rag_api` **crash-loops** on boot | `OPENAI_API_KEY` empty — embeddings can't start | Set `OPENAI_API_KEY`; keep `EMBEDDINGS_PROVIDER=openai` |
+| Chat + AI reply work, but **Bruce tool calls fail** ("search assets" / "create work request") | Bruce credentials or URLs wrong | `docker compose logs archibus_fastmcp --tail 50`; check `OAUTH_CLIENT_ID` / `CLIENT_SECRET` / `USER_API_CLIENT_ID` and `BEM_API_URL` / `USER_AUTH_URL` (full URL, trailing `/api/`) |
+| **Standalone**: tool calls fail with an auth error | Shared Bruce account creds wrong, or `STAGING_MODE` not `true` | Confirm `STAGING_MODE=true` + `USERNAME`/`PASSWORD`; `docker compose … restart archibus_fastmcp` |
 
 ---
 
-## 🎉 Special Thanks
+## 7. Logging
 
-We thank [Locize](https://locize.com) for their translation management tools that support multiple languages in LibreChat.
+View logs through Compose:
 
-<p align="center">
-  <a href="https://locize.com" target="_blank" rel="noopener noreferrer">
-    <img src="https://github.com/user-attachments/assets/d6b70894-6064-475e-bb65-92a9e23e0077" alt="Locize Logo" height="50">
-  </a>
-</p>
+```bash
+docker compose logs <service> --tail 100     # last 100 lines
+docker compose logs <service> -f             # follow live
+docker compose logs --since 1h               # last hour, all services
+```
+
+Services: `api`, `archibus_fastmcp`, `mongodb`, `meilisearch`, `vectordb`, `rag_api`.
+
+Containers log via Docker's default **json-file** driver. **No rotation is configured out of the box** — on a long-running host, add `max-size` / `max-file` to the compose logging options (or your host's Docker daemon) if you want size caps.
+
+**Credential discipline:** the MCP server has a `RAIN_DEBUG` flag, **off by default**. Setting `RAIN_DEBUG=1` emits credential-adjacent diagnostics (client-id and token prefixes) to the logs — leave it unset in production; enable it only briefly to debug an auth failure, then unset and `restart archibus_fastmcp`.
+
+---
+
+## 8. Backup
+
+Backup is your responsibility (integrate with your ASC-HS tooling). What to protect:
+
+| Volume | Contents | If lost |
+|---|---|---|
+| **`mongo_data`** | Chat history, users, agent config | **Irreplaceable — back this up** |
+| `meili_data` | Message search index | Rebuilds from MongoDB automatically |
+| `pgdata2` | RAG document embeddings | Rebuild from source documents |
+| `images_data` / `uploads_data` | User-uploaded files & generated images | Back up if users rely on them |
+
+Also keep, off-box and encrypted: **`.env`** (credentials) and **`librechat.yaml`** (agent + model config). A nightly `mongodump` of `mongo_data` → tarball → off-box is the practical baseline.
+
+---
+
+## 9. Monitoring
+
+**Built-in:** every service has a Docker healthcheck — `docker compose ps` shows `(healthy)` / `(unhealthy)`, catching container-level failures.
+
+**Your responsibility:**
+- **Uptime** — probe your public URL (and, if you want depth, that the app answers) every 1–5 min from your existing monitoring (Zabbix/PRTG/whatever ASC-HS runs).
+- **Application errors** — tool-call failures and LLM errors aren't surfaced externally by default; wire up Sentry/Glitchtip if you want them.
+
+---
+
+*Built on [LibreChat](https://librechat.ai) (MIT), patched for Bruce BEM. FM Assistant distribution maintained by Wilsch AI Services.*
