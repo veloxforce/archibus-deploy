@@ -66,7 +66,7 @@ Both models use the **same Bruce OAuth credentials** (`OAUTH_CLIENT_ID` / `CLIEN
 | **Outbound network** | HTTPS to the **Bruce BEM API** + auth URLs, your **AI provider** (OpenRouter + OpenAI), and Docker/registry.librechat.ai |
 | **Domain** | A public domain (e.g. `fm-assistant.your-domain.com`) with a valid **TLS cert** |
 | **Reverse proxy** | nginx / Caddy / Traefik terminating HTTPS → `localhost:${API_PORT}` (3080) |
-| **AI provider keys** | **OpenRouter key** (`OPENROUTER_KEY`) — powers the chat + the Bruce agent; one key reaches all frontier models (default: Claude Sonnet 4.6). **OpenAI key** (`OPENAI_API_KEY`) — powers document-embeddings only (`rag_api`); required even on OpenRouter, or `rag_api` crash-loops. |
+| **AI provider keys** | **OpenRouter key** (`OPENROUTER_KEY`) — powers the chat + the Bruce agent; one key reaches all frontier models (default: Claude Sonnet 4.6). **OpenAI key** (`OPENAI_API_KEY`) — powers document-embeddings only (`rag_api`). Optional: the stack comes up without it; only document-RAG is unavailable until it's set. |
 | **Bruce BEM credentials** | From the **Bruce team (Rein Suurväli)** — OAuth M2M client (`OAUTH_CLIENT_ID` / `CLIENT_SECRET`), `USER_API_CLIENT_ID`, the OAuth + BEM + user-auth URLs, and — for standalone mode — a Bruce `USERNAME` / `PASSWORD`. Full list in §5. |
 
 **Per environment.** If you run more than one environment (e.g. Qatar **dev** and **pre**), each needs its own Bruce credential set and URLs — same variable names, different values.
@@ -134,21 +134,45 @@ Then:
 `.env.example` ships with working defaults for everything internal (ports, DB names, embeddings, registration). **You only need to set these:**
 
 ```bash
-# ── Secrets — generate your own (LibreChat has a generator; never reuse examples) ──
-CREDS_KEY=                 # 32-byte hex
-CREDS_IV=                  # 16-byte hex
-JWT_SECRET=                # random 32+ char
-JWT_REFRESH_SECRET=        # random 32+ char
-MEILI_MASTER_KEY=          # random 32+ char
-POSTGRES_PASSWORD=         # any strong value
+# ── Secrets — generate your own; never reuse another deploy's ──
+# These are all just random values. "32-byte hex" vs "random 32+ char" is only the
+# *format*, not whether it's random — everything here is random. The hex ones must be
+# an exact byte length (they're an encryption key + IV); the rest just need to be long.
+# Generate each with openssl on your VM:
+#   CREDS_KEY           openssl rand -hex 32   # 32-byte hex (64 chars)
+#   CREDS_IV            openssl rand -hex 16   # 16-byte hex (32 chars)
+#   JWT_SECRET          openssl rand -hex 32
+#   JWT_REFRESH_SECRET  openssl rand -hex 32
+#   MEILI_MASTER_KEY    openssl rand -hex 32
+#   POSTGRES_PASSWORD   openssl rand -hex 16
+# Or print all six ready to paste, in one go:
+#   for v in CREDS_KEY:32 CREDS_IV:16 JWT_SECRET:32 JWT_REFRESH_SECRET:32 \
+#            MEILI_MASTER_KEY:32 POSTGRES_PASSWORD:16; do \
+#     echo "${v%%:*}=$(openssl rand -hex ${v##*:})"; done
+CREDS_KEY=
+CREDS_IV=
+JWT_SECRET=
+JWT_REFRESH_SECRET=
+MEILI_MASTER_KEY=
+POSTGRES_PASSWORD=
 
-# ── Your host ─────────────────────────────────────────────────────
-DOMAIN_CLIENT=https://your-domain    # change from the localhost default
-DOMAIN_SERVER=https://your-domain
+# ── Your host — the public URL where users open the FM Assistant CHAT ──
+# This is YOUR chat app's browser address (behind your reverse proxy + TLS).
+# It is NOT the Bruce BEM API URL. Both vars take the SAME value.
+#   • Just testing on the VM first?  Leave the shipped default → http://localhost:3080
+#   • Real deploy?  Set both to your public chat URL, e.g. https://fm-assistant.your-domain.com
+#     (no ":3080" when a reverse proxy terminates HTTPS on 443 → localhost:3080)
+DOMAIN_CLIENT=http://localhost:3080
+DOMAIN_SERVER=http://localhost:3080
 
 # ── AI provider keys ──────────────────────────────────────────────
-OPENROUTER_KEY=            # chat + Bruce agent (all frontier models)
-OPENAI_API_KEY=            # embeddings only — required, or rag_api crash-loops
+# .env.example ships FOUR ai-key lines; only the first two do anything here, and
+# your FM Assistant provider (Wilsch AI) supplies them — leave all four as shipped.
+OPENROUTER_KEY=            # ← chat + the Bruce agent. Provider-supplied. No AI replies until set.
+OPENAI_API_KEY=            # ← document-embeddings only (rag_api). OPTIONAL — chat + Bruce tools
+                          #    work without it; not needed to bring the stack up.
+ANTHROPIC_API_KEY=user_provided   # inert here (no anthropic endpoint) — leave as-is
+RUNPOD_API_KEY=                   # inert here (optional demo endpoint) — leave blank
 
 # ── Bruce BEM auth [both modes] — from Rein ───────────────────────
 OAUTH_CLIENT_ID=           # Bruce OAuth M2M client id
@@ -176,7 +200,8 @@ First move for any container issue: `docker compose ps` (find who's unhealthy), 
 | Symptom | Cause | Fix |
 |---|---|---|
 | UI returns **502 / won't load** right after first boot | `api` built a broken frontend under memory pressure (silent, first build only) | Rebuild: `docker compose … up -d --build` — reaches 6/6. Give the VM ≥ 8 GB (§3). |
-| `rag_api` **crash-loops** on boot | `OPENAI_API_KEY` empty — embeddings can't start | Set `OPENAI_API_KEY`; keep `EMBEDDINGS_PROVIDER=openai` |
+| `rag_api` **crash-loops** on boot | `EMBEDDINGS_PROVIDER` blank (ships `=openai`) | Restore `EMBEDDINGS_PROVIDER=openai` |
+| Doc Q&A / RAG errors, but chat + Bruce tools work | `OPENAI_API_KEY` missing/invalid | Set a real `OPENAI_API_KEY` |
 | Chat + AI reply work, but **Bruce tool calls fail** ("search assets" / "create work request") | Bruce credentials or URLs wrong | `docker compose logs archibus_fastmcp --tail 50`; check `OAUTH_CLIENT_ID` / `CLIENT_SECRET` / `USER_API_CLIENT_ID` and `BEM_API_URL` / `USER_AUTH_URL` (full URL, trailing `/api/`) |
 | **Standalone**: tool calls fail with an auth error | Shared Bruce account creds wrong, or `STAGING_MODE` not `true` | Confirm `STAGING_MODE=true` + `USERNAME`/`PASSWORD`; `docker compose … restart archibus_fastmcp` |
 
