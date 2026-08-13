@@ -84,7 +84,9 @@ cd archibus-deploy
 
 # 2. Create your env file and fill it in (see §5 for every variable)
 cp .env.example .env
-#    - set a stable COMPOSE_PROJECT_NAME (e.g. fm-assistant-prod) so volumes survive renames
+#    - set COMPOSE_PROJECT_NAME to this environment's name (e.g. fm-assistant-prod).
+#      It names the containers, volumes and network. Running dev/pre/prod on one
+#      host? Read §4c BEFORE you start the second one.
 #    - set DOMAIN_CLIENT / DOMAIN_SERVER to your public host
 #    - fill the Bruce credentials from Rein, plus OPENROUTER_KEY + OPENAI_API_KEY
 ```
@@ -126,6 +128,50 @@ Then:
 1. Point your reverse proxy at `localhost:${API_PORT}` (3080).
 2. **Bruce-side cutover** (done by the Bruce team): update the FM Assistant iframe `src` in Bruce BEM to `https://your-domain/?userToken=…&refreshToken=…`. The token query params are unchanged — only the host changes.
 3. Smoke test: open Bruce BEM → the FM Assistant iframe → ask *"search for assets"* → confirm the tool call succeeds under your own Bruce identity.
+
+### 4c — Multiple environments on one host (dev · pre · prod)
+
+Give each environment **its own directory and its own `.env`**. `COMPOSE_PROJECT_NAME` is the environment's name, and Compose derives everything else from it:
+
+```
+/opt/fm-assistant-prod/.env    COMPOSE_PROJECT_NAME=fm-assistant-prod
+/opt/fm-assistant-pre/.env     COMPOSE_PROJECT_NAME=fm-assistant-pre
+/opt/fm-assistant-dev/.env     COMPOSE_PROJECT_NAME=fm-assistant-dev
+```
+
+Containers are then named `<project>-<service>-<n>`, so `docker ps` tells the environments apart at a glance:
+
+```
+fm-assistant-prod-api-1                 ← the chat UI
+fm-assistant-prod-archibus_fastmcp-1    ← the Bruce tool server
+fm-assistant-prod-mongodb-1
+fm-assistant-prod-meilisearch-1
+fm-assistant-prod-vectordb-1
+fm-assistant-prod-rag_api-1
+```
+
+The `pre` and `dev` environments carry the same six names under their own prefix — `fm-assistant-pre-api-1`, `fm-assistant-dev-api-1`, and so on.
+
+**Three variables must differ between environments.** Everything else may repeat:
+
+| Variable | Why it must differ | Example (prod / pre) |
+|---|---|---|
+| `COMPOSE_PROJECT_NAME` | names containers, volumes and the network | `fm-assistant-prod` / `fm-assistant-pre` |
+| `API_PORT` | only one environment can hold a given host port | `3080` / `3081` |
+| `DOMAIN_CLIENT` + `DOMAIN_SERVER` | each environment has its own public URL | `https://fm.example.com` / `https://fm-pre.example.com` |
+
+**Data is isolated automatically.** Volumes and the network are project-scoped too, so `fm-assistant-pre` gets its own `mongo_data` — chat history, users and agent config never cross between environments.
+
+**Working with one environment:** run Compose from that environment's directory and it picks up that `.env`. From anywhere else, name the project explicitly:
+
+```bash
+docker compose -p fm-assistant-pre ps
+docker compose -p fm-assistant-pre logs archibus_fastmcp --tail 100
+```
+
+> **Upgrading an existing deployment.** Versions before **2026-08** pinned fixed container names (`LibreChat`, `chat-mongodb`, …), which made a second environment on the same host refuse to start outright. Pull the current `main` and `docker compose up -d` — the names above take effect; only the containers are replaced.
+>
+> **Before you set `COMPOSE_PROJECT_NAME` for the first time**, check what your volumes are already called: `docker volume ls | grep mongo_data`. With the variable unset, Compose used your **directory name** as the project. Set `COMPOSE_PROJECT_NAME` to exactly that name and your existing data is found as before; set it to anything else and the stack starts against **empty volumes** — the old chat history and users are still on disk, but under the old prefix.
 
 ---
 

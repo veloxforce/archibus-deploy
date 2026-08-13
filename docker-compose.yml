@@ -24,7 +24,6 @@ services:
     command: sh -c "chown -R ${UID:-1000}:${GID:-1000} /vol/data-node /vol/meili-data /vol/images /vol/uploads /vol/logs && echo 'permissions initialized for ${UID:-1000}:${GID:-1000}'"
     restart: "no"
   api:
-    container_name: LibreChat
     depends_on:
       init-permissions:
         condition: service_completed_successfully
@@ -94,7 +93,6 @@ services:
       api:
         condition: service_healthy
   mongodb:
-    container_name: chat-mongodb
     image: mongo
     restart: always
     user: "${UID:-1000}:${GID:-1000}"
@@ -105,7 +103,6 @@ services:
       - mongo_data:/data/db
     command: mongod --noauth
   meilisearch:
-    container_name: chat-meilisearch
     image: getmeili/meilisearch:v1.12.3
     restart: always
     user: "${UID:-1000}:${GID:-1000}"
@@ -119,7 +116,6 @@ services:
     volumes:
       - meili_data:/meili_data
   vectordb:
-    container_name: vectordb
     image: pgvector/pgvector:0.8.0-pg15-trixie
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-mydatabase}
@@ -129,7 +125,6 @@ services:
     volumes:
       - pgdata2:/var/lib/postgresql/data
   rag_api:
-    container_name: rag_api
     image: ghcr.io/danny-avila/librechat-rag-api-dev-lite:latest
     environment:
       - DB_HOST=vectordb
@@ -144,7 +139,6 @@ services:
   # externally-run stack reached over an external Docker network).
   # librechat.yaml's bruce-bem endpoint resolves to this service.
   archibus_fastmcp:
-    container_name: archibus_fastmcp
     build:
       context: ./archibus_fastmcp
       dockerfile: Dockerfile
