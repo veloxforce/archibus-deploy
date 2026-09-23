@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Annotated
 from fastmcp import FastMCP, Context
 from pydantic import Field
@@ -12,8 +13,8 @@ from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import Response
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG)
+# Set up logging. INFO by default; LOG_LEVEL=DEBUG only for local debugging.
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file

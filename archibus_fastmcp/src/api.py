@@ -201,13 +201,11 @@ class BruceBEMClient:
                 "audience": self.settings.AUDIENCE,
             }
 
-            # Debug logging
+            # The payload carries CLIENT_SECRET and the response the bearer: log neither.
             logger.debug(f"OAuth URL: {self.settings.OAUTH_URL}")
-            logger.debug(f"OAuth payload: {payload}")
 
             response = requests.post(self.settings.OAUTH_URL, json=payload)
             logger.debug(f"OAuth response status: {response.status_code}")
-            logger.debug(f"OAuth response text: {response.text}")
 
             if response.status_code == 200:
                 data = response.json()
