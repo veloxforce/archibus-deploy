@@ -612,8 +612,6 @@ export type TStartupConfig = {
   openidImageUrl: string;
   openidAutoRedirect: boolean;
   autoLoginEnabled?: boolean;
-  autoLoginEmail?: string;
-  autoLoginPassword?: string;
   samlLabel: string;
   samlImageUrl: string;
   /** LDAP Auth Configuration */
