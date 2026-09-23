@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ErrorTypes } from 'librechat-data-provider';
 import { OpenIDIcon, useToastContext } from '@librechat/client';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
@@ -13,7 +13,7 @@ import LoginForm from './LoginForm';
 function Login() {
   const localize = useLocalize();
   const { showToast } = useToastContext();
-  const { error, setError, login } = useAuthContext();
+  const { error, setError, login, bruceLogin } = useAuthContext();
   const { startupConfig } = useOutletContext<TLoginLayoutContext>();
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -86,21 +86,22 @@ function Login() {
     }
   }, [searchParams, setSearchParams]);
 
-  // AUTO-LOGIN POC: Bypass LibreChat's native authentication.
-  // LibreChat auth is a gate we need to pass, not the real auth layer.
-  // Real user authentication happens via userToken passed from Rain (Bruce BEM's auth system)
-  // to the MCP server. This auto-login just gets users into the chat interface automatically.
-  // See: bruce-bem-hybrid-auth-technical-approach.md for full auth flow.
+  // BRUCE TOKEN DOOR: the iframe's Bruce user token (captured above and in App.jsx) is the
+  // only key. POST /api/auth/bruce validates it against Bruce and opens the session; success
+  // and failure run through AuthContext's own login handlers. No token → no auto-login: the
+  // normal login form below is all a visitor without Bruce gets.
+  const bruceLoginAttempted = useRef(false);
   useEffect(() => {
-    const autoLoginEnabled = startupConfig?.autoLoginEnabled;
-    const autoLoginEmail = startupConfig?.autoLoginEmail;
-    const autoLoginPassword = startupConfig?.autoLoginPassword;
-
-    if (autoLoginEnabled && autoLoginEmail && autoLoginPassword) {
-      console.log('Auto-login enabled, logging in automatically...');
-      login({ email: autoLoginEmail, password: autoLoginPassword });
+    if (!startupConfig?.autoLoginEnabled || bruceLoginAttempted.current) {
+      return;
     }
-  }, [startupConfig, login]);
+    const userToken = searchParams.get('userToken') ?? sessionStorage.getItem('rainUserToken');
+    if (!userToken) {
+      return;
+    }
+    bruceLoginAttempted.current = true;
+    bruceLogin(userToken);
+  }, [startupConfig, bruceLogin, searchParams]);
 
   // Render fallback UI if auto-redirect is active.
   if (shouldAutoRedirect) {

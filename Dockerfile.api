@@ -53,6 +53,11 @@ COPY --chown=node:node librechat-patches/packages/api/src/utils/env.ts packages/
 COPY --chown=node:node librechat-patches/api/server/controllers/agents/client.js api/server/controllers/agents/client.js
 COPY --chown=node:node librechat-patches/api/server/services/MCP.js api/server/services/MCP.js
 COPY --chown=node:node librechat-patches/api/server/routes/config.js api/server/routes/config.js
+# Bruce token door (#3088): POST /api/auth/bruce + frame-ancestors on every response
+COPY --chown=node:node librechat-patches/api/server/routes/auth.js api/server/routes/auth.js
+COPY --chown=node:node librechat-patches/api/server/index.js api/server/index.js
+COPY --chown=node:node librechat-patches/api/server/middleware/requireBruceToken.js api/server/middleware/requireBruceToken.js
+COPY --chown=node:node librechat-patches/api/server/middleware/frameAncestors.js api/server/middleware/frameAncestors.js
 
 # Bruce agent seed script (run once by the init-bruce-agent service in docker-compose.yml)
 COPY --chown=node:node librechat-patches/config/seed-bruce-agent.js config/seed-bruce-agent.js
@@ -61,10 +66,15 @@ COPY --chown=node:node librechat-patches/config/seed-bruce-agent.js config/seed-
 COPY --chown=node:node librechat-patches/packages/data-provider/src/config.ts packages/data-provider/src/config.ts
 COPY --chown=node:node librechat-patches/packages/data-provider/src/createPayload.ts packages/data-provider/src/createPayload.ts
 COPY --chown=node:node librechat-patches/packages/data-provider/src/types.ts packages/data-provider/src/types.ts
+COPY --chown=node:node librechat-patches/packages/data-provider/src/api-endpoints.ts packages/data-provider/src/api-endpoints.ts
+COPY --chown=node:node librechat-patches/packages/data-provider/src/data-service.ts packages/data-provider/src/data-service.ts
 
 # Client-side (React, bundled during build)
 COPY --chown=node:node librechat-patches/client/src/App.jsx client/src/App.jsx
 COPY --chown=node:node librechat-patches/client/src/components/Auth/Login.tsx client/src/components/Auth/Login.tsx
+COPY --chown=node:node librechat-patches/client/src/hooks/AuthContext.tsx client/src/hooks/AuthContext.tsx
+COPY --chown=node:node librechat-patches/client/src/data-provider/Auth/mutations.ts client/src/data-provider/Auth/mutations.ts
+COPY --chown=node:node librechat-patches/client/src/common/types.ts client/src/common/types.ts
 COPY --chown=node:node librechat-patches/client/src/hooks/Chat/useChatFunctions.ts client/src/hooks/Chat/useChatFunctions.ts
 
 # Build frontend with patches, then prune for production

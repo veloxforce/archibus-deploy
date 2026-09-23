@@ -75,8 +75,6 @@ router.get('/', async function (req, res) {
       openidImageUrl: process.env.OPENID_IMAGE_URL,
       openidAutoRedirect: isEnabled(process.env.OPENID_AUTO_REDIRECT),
       autoLoginEnabled: isEnabled(process.env.AUTO_LOGIN_ENABLED),
-      autoLoginEmail: process.env.AUTO_LOGIN_EMAIL,
-      autoLoginPassword: process.env.AUTO_LOGIN_PASSWORD,
       samlLoginEnabled: !isOpenIdEnabled && isSamlEnabled,
       samlLabel: process.env.SAML_BUTTON_LABEL,
       samlImageUrl: process.env.SAML_IMAGE_URL,

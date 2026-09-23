@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Annotated
 from fastmcp import FastMCP, Context
 from pydantic import Field
@@ -6,10 +7,14 @@ from pydantic import Field
 # Import our refactored modules
 from src.utils import clean_null_values
 from src.api import Settings, BruceBEMClient, AuthPersistenceMiddleware
+from src.token_validate import BruceTokenValidator, TOKEN_HEADER
 from src.types import AssetType, WorkRequestStatus
+from starlette.concurrency import run_in_threadpool
+from starlette.requests import Request
+from starlette.responses import Response
 
-# Set up logging
-logging.basicConfig(level=logging.DEBUG)
+# Set up logging. INFO by default; LOG_LEVEL=DEBUG only for local debugging.
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
@@ -28,6 +33,17 @@ mcp = FastMCP("bruce-bem-tools")
 # Add authentication persistence middleware
 auth_middleware = AuthPersistenceMiddleware(client)
 mcp.add_middleware(auth_middleware)
+
+# Bruce user-token check for LibreChat's POST /api/auth/bruce (the token door).
+# Internal only: this service publishes no host port, so only containers on the
+# compose network reach it. The token is read from a header and never logged.
+token_validator = BruceTokenValidator(settings)
+
+
+@mcp.custom_route("/auth/validate", methods=["GET"], include_in_schema=False)
+async def validate_bruce_user_token(request: Request) -> Response:
+    status = await run_in_threadpool(token_validator.validate, request.headers.get(TOKEN_HEADER))
+    return Response(status_code=status)
 
 
 @mcp.tool
